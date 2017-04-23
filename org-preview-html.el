@@ -108,8 +108,9 @@
   "Kill the preview buffer and delete the preview file"
   (if (get-buffer "*eww*")
       (kill-buffer "*eww*"))
-  (if (and (boundp 'org-preview-html/htmlfilename)
-           org-preview-html/htmlfilename) (delete-file org-preview-html/htmlfilename))
+  (when org-preview-html/htmlfilename
+    (ignore-errors
+      (delete-file org-preview-html/htmlfilename)))
   (remove-hook 'kill-buffer-hook #'org-preview-html//cleanning-the-preview t))
 
 (defun org-preview-html/turn-off-preview-on-save ()
