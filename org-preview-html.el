@@ -43,10 +43,24 @@
 ;;
 ;;; Code:
 (require 'org)
+(require 'ox-html)
 (require 'eww)
 
 (defvar-local org-preview-html/htmlfilename nil
   "The temp exported html file")
+
+(defvar-local org-preview-html/export-html-function
+  nil
+  "A function export the current buffer contents to a specified path as HTML.")
+
+(defun org-preview-html/export-html (filename)
+  (org-export-to-file 'html filename))
+
+(defvar org-preview-html/export-html-function-alist
+  (list (cons (rx ".org" eos)
+              #'org-preview-html/export-html)
+        )
+  "Alist of filename patterns vs corresponding export-to-html functions")
 
 ;;;###autoload
 (defun org-preview-html/preview ()
@@ -61,20 +75,30 @@
         (let ((eww-point (point))
               (eww-window-start (window-start)))
           (with-current-buffer cb
-            (org-export-to-file 'html org-preview-html/htmlfilename nil nil nil nil nil #'eww-open-file))
+            (funcall org-preview-html/export-html-function
+                     org-preview-html/htmlfilename)
+            (eww-open-file org-preview-html/htmlfilename))
           (goto-char eww-point)
           (set-window-start nil eww-window-start)))))
   (add-hook 'kill-buffer-hook #'org-preview-html//cleanning-the-preview nil t))
 
 (defun org-preview-html/turn-on-preview-on-save ()
   "Turn on automatic preview of the current org file on save."
-  (add-hook 'after-save-hook #'org-preview-html/preview nil t)
-  ;; bogus file change to be able to save
-  (insert " ")
-  (delete-backward-char 1)
-  ;; trigger creation of preview buffer
-  (save-buffer)
-  (message "Eww preview is on"))
+  (let ((fun (assoc-default (file-name-nondirectory (buffer-file-name))
+                            org-preview-html/export-html-function-alist
+                            'string-match)))
+    (cond
+     (fun
+      (setq org-preview-html/export-html-function fun)
+      (add-hook 'after-save-hook #'org-preview-html/preview nil t)
+      ;; bogus file change to be able to save
+      (insert " ")
+      (delete-backward-char 1)
+      ;; trigger creation of preview buffer
+      (save-buffer)
+      (message "Eww preview is on"))
+     (t
+      (error "don't know how to preview the current file")))))
 
 (defun org-preview-html//cleanning-the-preview ()
   "Kill the preview buffer and delete the preview file"
